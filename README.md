@@ -1,6 +1,8 @@
 TilesheetStage3D
 ================
 
+This fork use premultiplied alpha to fix dark border on PNG, also use the AGSLS Assembler instead of the compiled binary (only for the asmooth shader for the moment)
+
 This is a class which extends openfl.display.Tilesheet and adds stage3D support to the drawTiles method, if available.
 
 Ported to Haxe 3/OpenFL by AS3Boyan
