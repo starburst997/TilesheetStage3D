@@ -110,6 +110,8 @@ class TilesheetStage3D extends Tilesheet
 	public static inline var MAX_VERTEX_PER_BUFFER:Int = 65532;
 	public static inline var MAX_INDICES_PER_BUFFER:Int = 98298;
 	
+	public var view:Sprite = null;
+	
 	public static var indices:ByteArray;
 	
 	public static function init( stage:Stage, stage3DLevel:Int = 0, antiAliasLevel:Int = 5, initCallback:String->Void = null, renderMode:Context3DRenderMode = null ):Void
