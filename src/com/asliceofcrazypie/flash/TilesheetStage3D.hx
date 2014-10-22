@@ -59,7 +59,8 @@ class TilesheetStage3D extends Tilesheet
 		
 		if ( !_isInited && !Type.enumEq( fallbackMode, FallbackMode.NO_FALLBACK ) )
 		{
-			throw new Error( 'Attemping to create TilesheetStage3D object before Stage3D has initialised.' );
+			//throw new Error( 'Attemping to create TilesheetStage3D object before Stage3D has initialised.' );
+			return;
 		}
 		
 		if ( context != null && context.context3D != null )
@@ -71,10 +72,26 @@ class TilesheetStage3D extends Tilesheet
 		#end
 	}
 	
+	public static function isStage3D():Bool
+	{
+		#if flash11
+		return context != null && context.context3D != null;
+		#else
+		return false;
+		#end
+	}
+	
+	public function resetTexture():Void 
+	{
+		#if flash11
+		texture = context.uploadTexture( __bitmap );
+		#end
+	}
+	
 	#if flash11
 	private function onResetTexture(e:Event):Void 
 	{
-		texture = context.uploadTexture( nmeBitmap );
+		texture = context.uploadTexture( __bitmap );
 	}
 	
 	private var texture:Texture;
@@ -156,12 +173,15 @@ class TilesheetStage3D extends Tilesheet
 	{
 		if ( context != null && context.context3D != null && !Type.enumEq( fallbackMode, FallbackMode.FORCE_FALLBACK ) )
 		{
+			
 			//parse flags
 			var isMatrix:Bool = (flags & Tilesheet.TILE_TRANS_2x2) > 0;
 			var isScale:Bool = (flags & Tilesheet.TILE_SCALE) > 0;
 			var isRotation:Bool = (flags & Tilesheet.TILE_ROTATION) > 0;
 			var isRGB:Bool = (flags & Tilesheet.TILE_RGB) > 0;
 			var isAlpha:Bool = (flags & Tilesheet.TILE_ALPHA) > 0;
+			var isRect:Bool = (flags & Tilesheet.TILE_RECT) > 0;
+			var isOrigin:Bool = (flags & Tilesheet.TILE_ORIGIN) > 0;
 			
 			var scale:Float = 1;
 			var rotation:Float = 0;
@@ -180,12 +200,27 @@ class TilesheetStage3D extends Tilesheet
 			var tileIdOff:Int = 2;
 			var scaleOff:Int = 3;
 			var rotationOff:Int = 3;
+			var matrixOff:Int = 3;
 			var rOff:Int = 3;
 			var gOff:Int = 4;
 			var bOff:Int = 5;
 			var aOff:Int = 3;
 			
 			var dataPerVertice:Int = 5;
+			
+			if ( isRect ) 
+			{
+				var n = (isOrigin ? 6 : 4) - 1;
+				tileDataPerItem = n + 3;
+				
+				matrixOff += n;
+				scaleOff += n;
+				rotationOff += n;
+				rOff += n;
+				gOff += n;
+				bOff += n;
+				aOff += n;
+			}
 			
 			if ( isMatrix )
 			{
@@ -271,6 +306,17 @@ class TilesheetStage3D extends Tilesheet
 			
 			var spriteSortItem:SpriteSortItem = context.getSpriteSortItem( graphics );
 			
+			if ( spriteSortItem == null ) 
+			{
+				//context.spriteSortItemCache.remove( context.findSpriteByGraphicCached( stage, graphic )
+				
+				context.removeGraphics( graphics );
+				context.spriteSortItemCache.remove( view );
+				spriteSortItem = context.getSpriteSortItem( graphics/*, view*/ );
+				
+				if ( spriteSortItem == null ) return;
+			}
+			
 			while ( tileDataPos < totalCount )
 			{
 				numItemsThisLoop = numItems > maxNumItems ? maxNumItems : numItems;
@@ -293,10 +339,10 @@ class TilesheetStage3D extends Tilesheet
 					
 					if ( isMatrix )
 					{
-						transform_a = tileData[tileDataPos + 3];
-						transform_b = tileData[tileDataPos + 4];
-						transform_c = tileData[tileDataPos + 5];
-						transform_d = tileData[tileDataPos + 6];
+						transform_a = tileData[tileDataPos + matrixOff];
+						transform_b = tileData[tileDataPos + matrixOff + 1];
+						transform_c = tileData[tileDataPos + matrixOff + 2];
+						transform_d = tileData[tileDataPos + matrixOff + 3];
 					}
 					else
 					{
@@ -330,24 +376,83 @@ class TilesheetStage3D extends Tilesheet
 						a = tileData[tileDataPos + aOff];
 					}
 					
-					setVertexData( 
-						Std.int( tileData[tileDataPos + tileIdOff] ), 
-						transform_tx, 
-						transform_ty, 
-						transform_a, 
-						transform_b, 
-						transform_c, 
-						transform_d, 
-						isRGB, 
-						isAlpha, 
-						r, 
-						g, 
-						b, 
-						a, 
-						renderJob.vertices, 
-						vertexPos,
-						context.getNextDepth()
-					);
+					/*if ( Std.int( tileData[tileDataPos + tileIdOff] ) < 0 )
+					{
+						tileData[tileDataPos + tileIdOff] = 0;
+						//tileDataPos += tileDataPerItem;
+						//continue;
+					}*/
+					
+					if ( isRect )
+					{
+						var cx:Float = 0, cy:Float = 0;
+						var rx = tileData[tileDataPos + 2];
+						var ry = tileData[tileDataPos + 3];
+						var rw = tileData[tileDataPos + 4];
+						var rh = tileData[tileDataPos + 5];
+						
+						if ( isOrigin )
+						{
+							cx = tileData[tileDataPos + 6];
+							cy = tileData[tileDataPos + 7];
+						}
+						
+						setVertexData( 
+							
+							rx, ry, rw, rh,
+							rx / __bitmapWidth, ry / __bitmapHeight, (rx + rw) / __bitmapWidth, (ry + rh) / __bitmapHeight,
+							cx, cy, 
+							
+							transform_tx, 
+							transform_ty, 
+							transform_a, 
+							transform_b, 
+							transform_c, 
+							transform_d, 
+							isRGB, 
+							isAlpha, 
+							r, 
+							g, 
+							b, 
+							a, 
+							renderJob.vertices, 
+							vertexPos,
+							context.getNextDepth()
+						);
+					}
+					else
+					{
+						var tileId = Std.int( tileData[tileDataPos + tileIdOff] );
+						var c:Point = __centerPoints[tileId];
+						var uv:Rectangle = __tileUVs[tileId];
+						var tile:Rectangle = __tileRects[tileId];
+						
+						if ( tile != null )
+						{
+							setVertexData( 
+								
+								tile.x, tile.y, tile.width, tile.height,
+								uv.x, uv.y, uv.width, uv.height,
+								c.x, c.y, 
+								
+								transform_tx, 
+								transform_ty, 
+								transform_a, 
+								transform_b, 
+								transform_c, 
+								transform_d, 
+								isRGB, 
+								isAlpha, 
+								r, 
+								g, 
+								b, 
+								a, 
+								renderJob.vertices, 
+								vertexPos,
+								context.getNextDepth()
+							);
+						}
+					}
 					
 					tileDataPos += tileDataPerItem;
 					vertexPos += vertexPerItem * dataPerVertice;
@@ -359,28 +464,40 @@ class TilesheetStage3D extends Tilesheet
 		}
 		else if( !Type.enumEq( fallbackMode, FallbackMode.NO_FALLBACK ) )
 		{
-			if ( (flags & Tilesheet.TILE_TRANS_2x2) > 0 )
+			/*if ( (flags & Tilesheet.TILE_TRANS_2x2) > 0 )
 			{
 				throw new ArgumentError( 'Fallback mode does not support matrix transformations' );
-			}
+			}*/
 			super.drawTiles(graphics, tileData, smooth, flags,count);
 		}
 	}
 		
 	
 	
-	private inline function setVertexData(tileId:Int, transform_tx:Float, transform_ty:Float, transform_a:Float, transform_b:Float, transform_c:Float, transform_d:Float, isRGB:Bool, isAlpha:Bool, r:Float, g:Float, b:Float, a:Float, vertices:Vector<Float>, vertexPos:Int, depth:Float ):Void 
+	private inline function setVertexData(rx:Float, ry:Float, rw:Float, rh:Float, ux:Float, uy:Float, uw:Float, uh:Float, cx:Float, cy:Float, transform_tx:Float, transform_ty:Float, transform_a:Float, transform_b:Float, transform_c:Float, transform_d:Float, isRGB:Bool, isAlpha:Bool, r:Float, g:Float, b:Float, a:Float, vertices:Vector<Float>, vertexPos:Int, depth:Float ):Void 
 	{
-		var c:Point = tilePoints[tileId];
+		//var c:Point = __centerPoints[tileId];
 		
-		var uv:Rectangle = tileUVs[tileId];
+		//var uv:Rectangle = __tileUVs[tileId];
 		
-		var tile:Rectangle = tiles[tileId];
-		var imgWidth:Int = Std.int( tile.width );
-		var imgHeight:Int = Std.int( tile.height );
+		//var tile:Rectangle = __tileRects[tileId];
 		
-		var centerX:Float = c.x * imgWidth;
-		var centerY:Float = c.y * imgHeight;
+		/*if ( tile == null )
+		{
+			//trace( tileId );
+			return;
+		}*/
+		
+		/*if ( tileId >= 96 && tileId < 96 + 4 )
+		{
+			trace( tileId, tile, uv, c );
+		}*/
+		
+		var imgWidth:Int = Std.int( rw );
+		var imgHeight:Int = Std.int( rh );
+		
+		var centerX:Float = cx * imgWidth;
+		var centerY:Float = cy * imgHeight;
 		
 		var px:Float;
 		var py:Float;
@@ -395,8 +512,8 @@ class TilesheetStage3D extends Tilesheet
 		vertices[vertexPos++] = ( px * transform_b + py * transform_d + transform_ty );//top left y
 		vertices[vertexPos++] = ( depth );//top left z
 		
-		vertices[vertexPos++] = ( uv.x );//top left u
-		vertices[vertexPos++] = ( uv.y );//top left v
+		vertices[vertexPos++] = ( ux );//top left u
+		vertices[vertexPos++] = ( uy );//top left v
 		
 		if ( isRGB )
 		{
@@ -418,8 +535,8 @@ class TilesheetStage3D extends Tilesheet
 		vertices[vertexPos++] = ( px * transform_b + py * transform_d + transform_ty );//top right y
 		vertices[vertexPos++] = ( depth );//top right z
 		
-		vertices[vertexPos++] = ( uv.width );//top right u
-		vertices[vertexPos++] = ( uv.y );//top right v
+		vertices[vertexPos++] = ( uw );//top right u
+		vertices[vertexPos++] = ( uy );//top right v
 		
 		if ( isRGB )
 		{
@@ -441,8 +558,8 @@ class TilesheetStage3D extends Tilesheet
 		vertices[vertexPos++] = ( px * transform_b + py * transform_d + transform_ty );//bottom right y
 		vertices[vertexPos++] = ( depth );//bottom right z
 		
-		vertices[vertexPos++] = ( uv.width );//bottom right u
-		vertices[vertexPos++] = ( uv.height );//bottom right v
+		vertices[vertexPos++] = ( uw );//bottom right u
+		vertices[vertexPos++] = ( uh );//bottom right v
 		
 		if ( isRGB )
 		{
@@ -464,8 +581,8 @@ class TilesheetStage3D extends Tilesheet
 		vertices[vertexPos++] = ( px * transform_b + py * transform_d + transform_ty );//bottom left y
 		vertices[vertexPos++] = ( depth );//bottom left z
 		
-		vertices[vertexPos++] = ( uv.x );//bottom left u
-		vertices[vertexPos++] = ( uv.height );//bottom left v
+		vertices[vertexPos++] = ( ux );//bottom left u
+		vertices[vertexPos++] = ( uh );//bottom left v
 		
 		if ( isRGB )
 		{
@@ -516,10 +633,10 @@ class TilesheetStage3D extends Tilesheet
 			this.texture = null;
 		}
 		
-		if ( this.nmeBitmap != null )
+		if ( this.__bitmap != null )
 		{
-			this.nmeBitmap.dispose();
-			this.nmeBitmap = null;
+			this.__bitmap.dispose();
+			this.__bitmap = null;
 		}
 	}
 	

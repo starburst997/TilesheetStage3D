@@ -2,6 +2,10 @@ package com.asliceofcrazypie.flash;
 
 #if flash11
 
+import aglsl.assembler.AGALMiniAssembler;
+import aglsl.AGALTokenizer;
+import aglsl.AGLSLParser;
+import openfl.errors.ArgumentError;
 import flash.display3D.Context3D;
 import flash.display3D.Program3D;
 import flash.display3D.textures.Texture;
@@ -76,7 +80,7 @@ class ContextWrapper extends EventDispatcher
 	
 	//graphic to sprite lookup table
 	private var graphicCache:Map<Graphics,Sprite>;
-	private var spriteSortItemCache:Map<Sprite,SpriteSortItem>;
+	public var spriteSortItemCache:Map<Sprite,SpriteSortItem>;
 	private var currentSpriteSortItems:Vector<SpriteSortItem>;
 	
 	//avoid unneeded context changes
@@ -98,8 +102,10 @@ class ContextWrapper extends EventDispatcher
 		
 		//fragment shaders
 		var fragmentRawDataRGBASmooth:Array<Int> = 	[ -96, 1, 0, 0, 0, -95, 1, 40, 0, 0, 0, 1, 0, 15, 2, 0, 0, 0, -28, 4, 0, 0, 0, 0, 0, 0, 0, 5, 0, 0, 16, 3, 0, 0, 0, 2, 0, 15, 2, 1, 0, 0, -28, 2, 0, 0, 0, 1, 0, 0, -28, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 15, 3, 2, 0, 0, -28, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-		var fragmentRawDataRGBSmooth:Array<Int> = 	[ -96, 1, 0, 0, 0, -95, 1, 40, 0, 0, 0, 1, 0, 15, 2, 0, 0, 0, -28, 4, 0, 0, 0, 0, 0, 0, 0, 5, 0, 0, 16, 3, 0, 0, 0, 1, 0, 15, 2, 1, 0, 0, -28, 2, 0, 0, 0, 1, 0, 0, -28, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 15, 3, 1, 0, 0, -28, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 		var fragmentRawDataASmooth:Array<Int> = 	[ -96, 1, 0, 0, 0, -95, 1, 40, 0, 0, 0, 1, 0, 15, 2, 0, 0, 0, -28, 4, 0, 0, 0, 0, 0, 0, 0, 5, 0, 0, 16, 3, 0, 0, 0, 1, 0, 8, 2, 1, 0, 0, -1, 2, 0, 0, 0, 1, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 15, 3, 1, 0, 0, -28, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+		
+		
+		var fragmentRawDataRGBSmooth:Array<Int> = 	[ -96, 1, 0, 0, 0, -95, 1, 40, 0, 0, 0, 1, 0, 15, 2, 0, 0, 0, -28, 4, 0, 0, 0, 0, 0, 0, 0, 5, 0, 0, 16, 3, 0, 0, 0, 1, 0, 15, 2, 1, 0, 0, -28, 2, 0, 0, 0, 1, 0, 0, -28, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 15, 3, 1, 0, 0, -28, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 		var fragmentRawDataSmooth:Array<Int> = 		[ -96, 1, 0, 0, 0, -95, 1, 40, 0, 0, 0, 1, 0, 15, 2, 0, 0, 0, -28, 4, 0, 0, 0, 0, 0, 0, 0, 5, 0, 0, 16, 0, 0, 0, 0, 0, 0, 15, 3, 1, 0, 0, -28, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 		var fragmentRawDataRGBA:Array<Int> = 		[ -96, 1, 0, 0, 0, -95, 1, 40, 0, 0, 0, 1, 0, 15, 2, 0, 0, 0, -28, 4, 0, 0, 0, 0, 0, 0, 0, 5, 0, 0, 0, 3, 0, 0, 0, 2, 0, 15, 2, 1, 0, 0, -28, 2, 0, 0, 0, 1, 0, 0, -28, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 15, 3, 2, 0, 0, -28, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 		var fragmentRawDataRGB:Array<Int> = 		[ -96, 1, 0, 0, 0, -95, 1, 40, 0, 0, 0, 1, 0, 15, 2, 0, 0, 0, -28, 4, 0, 0, 0, 0, 0, 0, 0, 5, 0, 0, 0, 3, 0, 0, 0, 2, 0, 15, 2, 1, 0, 0, -28, 2, 0, 0, 0, 1, 0, 0, -28, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 15, 3, 2, 0, 0, -28, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
@@ -117,6 +123,43 @@ class ContextWrapper extends EventDispatcher
 		fragmentDataRGB = 			rawDataToBytes( fragmentRawDataRGB );
 		fragmentDataA = 			rawDataToBytes( fragmentRawDataA );
 		fragmentData = 				rawDataToBytes( fragmentRawData );
+		
+		/*var a = new AGALTokenizer();
+		var b = new AGLSLParser();
+		fragmentDataASmooth.position = 0;
+		trace( "====", b.parse( a.decribeAGALByteArray( fragmentDataASmooth ) ) );
+		
+		var a = new AGALTokenizer();
+		var b = new AGLSLParser();
+		fragmentDataRGBASmooth.position = 0;
+		trace( "====", b.parse( a.decribeAGALByteArray( fragmentDataRGBASmooth ) ) );*/
+		
+		// Recreate Shaders for premultiplied
+		var fragmentShaderAssembler2 : AGALMiniAssembler= new AGALMiniAssembler();
+		fragmentShaderAssembler2.assemble( "part vertex 1 \n" + 
+			
+			"m44 op, va0, vc0\n" + // pos to clipspace
+			"mov v0, va1\n" + // copy UV
+			"mov v1, va2" + //copy rgba
+			
+			"endpart");
+		
+		var result2 = fragmentShaderAssembler2.r.get("vertex").data;
+		vertexDataRGBA = result2;
+		
+		var fragmentShaderAssembler : AGALMiniAssembler= new AGALMiniAssembler();
+		fragmentShaderAssembler.assemble( "part fragment 1 \n" + 
+			
+			"tex ft1, v0, fs0 <2d,clamp,linear>\n" +
+			"mul ft1, ft1, v1.x\n" + // Multiply alpha on RGB (premultiplied?)
+			"mov oc, ft1" +
+			
+			"endpart");
+		
+		var result = fragmentShaderAssembler.r.get("fragment").data;
+		fragmentDataASmooth = result;
+		
+		// TODO: Recreate all other shaders for pre-multiplied ???
 		
 		graphicCache = new Map<Graphics,Sprite>();
 		spriteSortItemCache = new Map<Sprite,SpriteSortItem>();
@@ -194,8 +237,11 @@ class ContextWrapper extends EventDispatcher
 		}
 	}
 	
+	public static var contextLost:Bool = false;
 	private function initStage3D(e:Event):Void 
 	{
+		contextLost = true;
+		
 		if ( context3D != null )
 		{
 			if (stage.stage3Ds[depth].context3D != context3D)
@@ -210,7 +256,7 @@ class ContextWrapper extends EventDispatcher
 			
 			if ( context3D != null )
 			{
-				context3D.setBlendFactors(Context3DBlendFactor.SOURCE_ALPHA, Context3DBlendFactor.ONE_MINUS_SOURCE_ALPHA);
+				context3D.setBlendFactors(Context3DBlendFactor.ONE, Context3DBlendFactor.ONE_MINUS_SOURCE_ALPHA);
 				
 				baseTransformMatrix = new Matrix3D();
 				
@@ -259,7 +305,11 @@ class ContextWrapper extends EventDispatcher
 	
 	private function initStage3DError(e:Event):Void 
 	{
-		
+		if ( this._initCallback != null )
+		{
+			this._initCallback();
+			this._initCallback = null;//only call once
+		}
 	}
 	
 	public function onStageResize(e:Event):Void 
@@ -310,7 +360,7 @@ class ContextWrapper extends EventDispatcher
 	
 	public function uploadTexture(image:BitmapData) : Texture
 	{
-		if ( context3D != null )
+		if ( (context3D != null) && (image != null) )
 		{
 			var texture:Texture = context3D.createTexture(image.width, image.height, Context3DTextureFormat.BGRA, false);
 			
@@ -393,9 +443,9 @@ class ContextWrapper extends EventDispatcher
 	}
 	
 	
-	public inline function getSpriteSortItem( graphic:Graphics ):SpriteSortItem
+	public inline function getSpriteSortItem( graphic:Graphics, view:Sprite = null ):SpriteSortItem
 	{
-		return getSpriteSortItemBySprite( findSpriteByGraphicCached( stage, graphic ) );
+		return getSpriteSortItemBySprite( view != null ? view : findSpriteByGraphicCached( stage, graphic ) );
 	}
 	
 	private inline function getSpriteSortItemBySprite( sprite:Sprite ):SpriteSortItem
@@ -463,6 +513,10 @@ class ContextWrapper extends EventDispatcher
 		graphicCache.remove( target.graphics );
 	}
 	
+	public function removeGraphics( graphics:Graphics ):Void
+	{
+		graphicCache.remove( graphics );
+	}
 	
 	public inline function findSpriteByGraphic( start:DisplayObject, graphic:Graphics ):Sprite
 	{
